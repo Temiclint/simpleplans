@@ -41,7 +41,8 @@ const userSchema = new mongoose.Schema ({
     email: String,
     password: String,
     googleId: String,
-    facebookId: String
+    facebookId: String,
+    plans: String
 });
 
 
@@ -91,7 +92,7 @@ passport.use(new FacebookStrategy({
 },
 function(accessToken, refreshToken, profile, cb) {
   console.log(profile)
-  User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+  User.findOrCreate({facebookId: profile.id }, function (err, user) {
     return cb(err, user);
   });
 }
@@ -135,12 +136,42 @@ app.get("/register", function(req, res){
 
 
 app.get("/plans", function(req, res){
+  User.find({"plans": {$ne: null}}, function(err, foundUsers){
+    if(err){
+      console.log(err);
+    }else{
+      if (foundUsers){
+        res.render("plans", {usersWithPlans: foundUsers});
+      }
+    }
+  });
+});
+
+app.get("/submit", function(req, res){
   if (req.isAuthenticated()){
-    res.render("plans");
+    res.render("submit");
   } else {
     res.redirect("/login")
   }
 });
+
+app.post("/submit", function(req, res){
+  const submitPlans = req.body.plans;
+
+  User.findById(req.user.id, function(err, foundUser){
+    if(err){
+      console.log(err)
+    }else{
+      if (foundUser){
+        foundUser.plans = submitPlans;
+        foundUser.save(function(){
+          res.redirect("/plans")
+        });
+      }
+    }
+  });
+
+})
 
 app.get("/logout", function(req, res){
   req.logout(function(err) {
@@ -179,7 +210,7 @@ req.login(user, function(err){
   if (err){
     console.log(err);
   }else{
-    passport.authenticate("local")(req, res, function(){
+      passport.authenticate("local", { failureRedirect: '/login' })(req, res, function(){
       res.redirect('/plans')
     });
   }
